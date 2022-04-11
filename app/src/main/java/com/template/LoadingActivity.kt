@@ -1,36 +1,52 @@
 package com.template
 
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import com.template.ui.theme.Server_v1Theme
 import com.template.ui.theme.StartScreen
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import java.util.*
 
 
 class LoadingActivity : ComponentActivity() {
+    val showLoading : MutableStateFlow<Boolean> = MutableStateFlow(true)
+
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
         setContent {
-            Server_v1Theme {
-                StartScreen()
+            val isShow by showLoading.collectAsState()
+            if(isShow){
+                Server_v1Theme {
+                    StartScreen()
+                }
             }
         }
 
         val savedHost = PrefManager.getUrl()
         if (savedHost == null && Utils.isNetworkAvailable()) {
+            Log.e("LoadingActivity", "fetch")
             fetchConfig()
-        } else if(savedHost != null && Utils.isNetworkAvailable()){
+        } else if(!savedHost.isNullOrEmpty() && Utils.isNetworkAvailable()){
+            Log.e("LoadingActivity", "saved Host $savedHost")
+            showLoading.value = false
             openCustomTab()
         } else {
+            showLoading.value = false
+            Log.e("LoadingActivity", "start main activity")
             startActivity(Intent(this, MainActivity::class.java))
         }
     }
@@ -41,25 +57,43 @@ class LoadingActivity : ComponentActivity() {
             minimumFetchIntervalInSeconds = 3600
         }
         remoteConfig.setConfigSettingsAsync(configSettings)
+        Log.e("LoadingActivity", "start fetch")
         remoteConfig.fetchAndActivate()
+            .addOnCanceledListener {
+                Log.e("LoadingActivity", "")
+            }
             .addOnCompleteListener(this) { task ->
+                Log.e("LoadingActivity", "fetch $task")
                 if (task.isSuccessful) {
                     val host: String = remoteConfig.getString("check_link")
                     val url =
                         "$host/?packageid=${this.packageName}&usserid=${UUID.randomUUID()}&getz=${TimeZone.getDefault().id}&getr=utm_source=google-play&utm_medium=organic"
 
                     PrefManager.setUrl(url)
+
                     openCustomTab()
 
                 } else {
+                    showLoading.value = false
+                    PrefManager.setUrl("")
                     startActivity(Intent(this, MainActivity::class.java))
                 }
+            }
+            .addOnFailureListener {
+                Log.e("LoadingActivity", "err ${it.message}")
             }
     }
 
     private fun openCustomTab(){
         val url = PrefManager.getUrl()
-        val customTabsIntent: CustomTabsIntent = CustomTabsIntent.Builder().build()
-        customTabsIntent.launchUrl(this, Uri.parse(url))
+        Log.e("LoadingActivity", "$url")
+
+        val defaultColors = CustomTabColorSchemeParams.Builder()
+            .setToolbarColor(Color.BLACK)
+            .build()
+        val builder = CustomTabsIntent.Builder().setDefaultColorSchemeParams(defaultColors)
+
+
+        builder.build().launchUrl(this, Uri.parse(url))
     }
 }

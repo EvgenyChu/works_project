@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.template.R
@@ -19,8 +20,8 @@ import com.template.R
 
 @Composable
 fun StartScreen(
-    icon: Int = R.drawable.ic_baseline_temple_hindu_24,
-    textLabel: String = "Com.Template"
+    icon: Int = R.mipmap.ic_launcher,
+    textLabel: String = stringResource(id = R.string.app_name)
 ) {
 
     Box(
