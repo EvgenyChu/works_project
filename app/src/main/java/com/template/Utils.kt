@@ -6,7 +6,7 @@ import android.net.NetworkInfo
 import androidx.core.content.ContextCompat.getSystemService
 
 object Utils {
-    private fun isNetworkAvailable(): Boolean {
+     fun isNetworkAvailable(): Boolean {
         val connectivityManager = App.applicationContext().getSystemService(Context.CONNECTIVITY_SERVICE)
         return if (connectivityManager is ConnectivityManager) {
             val networkInfo: NetworkInfo? = connectivityManager.activeNetworkInfo
