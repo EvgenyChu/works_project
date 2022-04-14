@@ -73,25 +73,30 @@ class LoadingActivity : ComponentActivity() {
                 Log.e("LoadingActivity", "fetch $task")
                 if (task.isSuccessful) {
                     val host: String = remoteConfig.getString("check_link")
-
                     Log.e("LoadingActivity", host)
-                    val url =
-                        "$host/?packageid=${this.packageName}&usserid=${UUID.randomUUID()}&getz=${TimeZone.getDefault().id}&getr=utm_source=google-play&utm_medium=organic"
-                    lifecycle.coroutineScope.launch(Dispatchers.IO) {
-                        val url2 = obtainUrl(url)
-                        withContext(Dispatchers.Main) {
-                            if (url2 == null) {
-                                startActivity(
-                                    Intent(
-                                        this@LoadingActivity,
-                                        MainActivity::class.java
+                    if (host.isEmpty()) {
+                        PrefManager.setUrl("")
+                        startActivity(Intent(this, MainActivity::class.java))
+                    } else {
+                        val url =
+                            "$host/?packageid=${this.packageName}&usserid=${UUID.randomUUID()}&getz=${TimeZone.getDefault().id}&getr=utm_source=google-play&utm_medium=organic"
+                        lifecycle.coroutineScope.launch(Dispatchers.IO) {
+                            val url2 = obtainUrl(url)
+                            withContext(Dispatchers.Main) {
+                                if (url2 == null) {
+                                    startActivity(
+                                        Intent(
+                                            this@LoadingActivity,
+                                            MainActivity::class.java
+                                        )
                                     )
-                                )
-                            } else {
-                                openCustomTab()
+                                } else {
+                                    openCustomTab()
+                                }
                             }
                         }
                     }
+
                 } else {
                     showLoading.value = false
                     PrefManager.setUrl("")
