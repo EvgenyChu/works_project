@@ -77,16 +77,21 @@ class LoadingActivity : ComponentActivity() {
                     Log.e("LoadingActivity", host)
                     val url =
                         "$host/?packageid=${this.packageName}&usserid=${UUID.randomUUID()}&getz=${TimeZone.getDefault().id}&getr=utm_source=google-play&utm_medium=organic"
-                    if (host.isNotEmpty()) {
-                        PrefManager.setUrl(url)
-                        lifecycle.coroutineScope.launch(Dispatchers.IO) {
-                            obtainUrl(url)
+                    lifecycle.coroutineScope.launch(Dispatchers.IO) {
+                        val url2 = obtainUrl(url)
+                        withContext(Dispatchers.Main) {
+                            if (url2 == null) {
+                                startActivity(
+                                    Intent(
+                                        this@LoadingActivity,
+                                        MainActivity::class.java
+                                    )
+                                )
+                            } else {
+                                openCustomTab()
+                            }
                         }
-                    } else {
-                        PrefManager.setUrl("")
-                        startActivity(Intent(this, MainActivity::class.java))
                     }
-
                 } else {
                     showLoading.value = false
                     PrefManager.setUrl("")
@@ -109,30 +114,23 @@ class LoadingActivity : ComponentActivity() {
             .build()
         val builder = CustomTabsIntent.Builder().setDefaultColorSchemeParams(defaultColors)
 
-                builder.build().launchUrl(this, Uri.parse(url))
+        builder.build().launchUrl(this, Uri.parse(url))
     }
 
-    private fun obtainUrl(host: String) {
+    private suspend fun obtainUrl(host: String): String? {
         Log.e("url", host)
 
         val connection = URL(host).openConnection() as HttpURLConnection
         try {
             val data = connection.inputStream.bufferedReader().use { it.readText() }
             PrefManager.setUrl(data)
-            lifecycle.coroutineScope.launch(Dispatchers.IO) {
-                withContext(Dispatchers.Main) {
-                    openCustomTab()
-                }
-            }
-            Log.e("data", "$data")
-        }
-        catch (e: Exception) {
+            return data
+        } catch (e: Exception) {
             e.printStackTrace()
             PrefManager.setUrl("")
-            startActivity(Intent(this, MainActivity::class.java))
             Log.e("e.message", "${e.message}")
-        }
-        finally {
+            return null
+        } finally {
             connection.disconnect()
         }
     }
