@@ -11,14 +11,11 @@ class App() : Application() {
         fun applicationContext(): Context {
             return instance!!.applicationContext
         }
-
-
     }
 
     init {
         instance = this
     }
-
 
     override fun onCreate() {
         super.onCreate()

